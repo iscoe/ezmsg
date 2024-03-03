@@ -76,8 +76,8 @@ def test_window_gen_nodur():
     )
     gen = windowing(window_dur=None)
     result = gen.send(test_msg)
-    assert result[0] is test_msg
-    assert np.shares_memory(result[0].data, test_msg.data)
+    assert result is test_msg
+    assert np.shares_memory(result.data, test_msg.data)
 
 
 @pytest.mark.parametrize("msg_block_size", [1, 5, 10, 20, 60])
@@ -126,34 +126,25 @@ def test_window_generator(
         test_msg = replace(test_msg, data=msg_data, axes={
             "time": AxisArray.Axis.TimeAxis(fs=fs, offset=tvec[msg_ix * msg_block_size])
         })
-        wins = gen.send(test_msg)
-        results.extend(wins)
+        win_msg = gen.send(test_msg)
+        results.append(win_msg)
 
     # Check each return value's metadata (offsets checked at end)
+    expected_dims = test_msg.dims[:time_ax] + [newaxis or "win"] + test_msg.dims[time_ax:]
     for msg in results:
         assert msg.axes["time"].gain == 1/fs
-        if newaxis is None:
-            assert msg.dims == test_msg.dims
-        else:
-            assert msg.dims == test_msg.dims[:time_ax] + [newaxis] + test_msg.dims[time_ax:]
-            assert newaxis in msg.axes
-            assert msg.axes[newaxis].gain == 0.0 if win_shift is None else shift_len / fs
+        assert msg.dims == expected_dims
+        assert (newaxis or "win") in msg.axes
+        assert msg.axes[(newaxis or "win")].gain == 0.0 if win_shift is None else shift_len / fs
 
     # Post-process the results to yield a single data array and a single vector of offsets.
     win_ax = time_ax
-    if newaxis is None:
-        result = np.stack([_.data for _ in results], axis=time_ax)
-        # np.stack creates new axis before target axis.
-        time_ax += 1
-        offsets = np.array([_.axes["time"].offset for _ in results])
-    else:
-        # win_ax already in data; replaced time_ax, time_ax moved to end.
-        result = np.concatenate([_.data for _ in results], axis=win_ax)
-        time_ax = result.ndim - 1
-        offsets = np.hstack([
-            _.axes[newaxis].offset + _.axes[newaxis].gain * np.arange(_.data.shape[win_ax])
-            for _ in results
-        ])
+    time_ax = win_ax + 1
+    result = np.concatenate([_.data for _ in results], win_ax)
+    offsets = np.hstack([
+        _.axes[newaxis or "win"].offset + _.axes[newaxis or "win"].gain * np.arange(_.data.shape[win_ax])
+        for _ in results
+    ])
 
     # Calculate the expected results for comparison.
     expected, tvec = calculate_expected_results(data, fs, win_shift, zero_pad, msg_block_size, shift_len, win_len,

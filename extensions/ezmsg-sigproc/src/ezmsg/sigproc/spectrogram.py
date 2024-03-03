@@ -4,7 +4,7 @@ import numpy as np
 
 import ezmsg.core as ez
 from ezmsg.util.messages.axisarray import AxisArray
-from ezmsg.util.generator import consumer, GenAxisArray  # , compose
+from ezmsg.util.generator import consumer, GenAxisArray, compose
 from ezmsg.util.messages.modify import modify_axis
 from ezmsg.sigproc.window import windowing
 from ezmsg.sigproc.spectrum import (
@@ -22,13 +22,11 @@ def spectrogram(
     output: SpectralOutput = SpectralOutput.POSITIVE
 ) -> typing.Generator[typing.Optional[AxisArray], AxisArray, None]:
 
-    # We cannot use `compose` because `windowing` returns a list of axisarray objects,
-    #  even though the length is always exactly 1 for the settings used here.
-    # pipeline = compose(
-    f_win = windowing(axis="time", newaxis="step", window_dur=window_dur, window_shift=window_shift)
-    f_spec = spectrum(axis="time", window=window, transform=transform, output=output)
-    f_modify = modify_axis(name_map={"step": "time"})
-    # )
+    pipeline = compose(
+        windowing(axis="time", newaxis="win", window_dur=window_dur, window_shift=window_shift),
+        spectrum(axis="time", window=window, transform=transform, output=output),
+        modify_axis(name_map={"win": "time"})
+    )
 
     # State variables
     axis_arr_in = AxisArray(np.array([]), dims=[""])
@@ -36,14 +34,7 @@ def spectrogram(
 
     while True:
         axis_arr_in = yield axis_arr_out
-
-        # axis_arr_out = pipeline(axis_arr_in)
-        axis_arr_out = None
-        wins = f_win.send(axis_arr_in)
-        if len(wins):
-            specs = f_spec.send(wins[0])
-            if specs is not None:
-                axis_arr_out = f_modify.send(specs)
+        axis_arr_out = pipeline(axis_arr_in)
 
 
 class SpectrogramSettings(ez.Settings):
