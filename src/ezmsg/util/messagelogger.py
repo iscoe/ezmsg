@@ -17,6 +17,13 @@ def log_object(obj: Any) -> str:
 
 
 class MessageLoggerSettings(ez.Settings):
+    """
+    Settings for :obj:`MessageLogger` Unit.
+
+    Args:
+        output: :py:class:`pathlib.Path` for a file where the messages will be logged.
+            If the file path already exists, the existing file will be truncated to 0 length.
+    """
     output: Optional[Path] = None
 
 
@@ -25,15 +32,41 @@ class MessageLoggerState(ez.State):
 
 
 class MessageLogger(ez.Unit):
+    """
+    Logs all messages it receives to a file.
+    File path can be set in ``SETTINGS`` or set dynamically by passing a
+    :py:class:`pathlib.Path` to ``INPUT_START``.
+    """
+
     SETTINGS: MessageLoggerSettings
     STATE: MessageLoggerState
 
     INPUT_START = ez.InputStream(Path)
+    """
+    Pass a :py:class:`pathlib.Path` 
+    to begin logging messages to that path. If the file path already exists, the existing 
+    file will be truncated to 0 length. If the file is already open, nothing will happen.
+    """
+
     INPUT_STOP = ez.InputStream(Path)
+    """
+    Pass a :py:class:`pathlib.Path` 
+    to stop logging messages to that path.
+    """
+
     INPUT_MESSAGE = ez.InputStream(Any)
+    """Pass a piece of data to log it to every open file which the ``MessageLogger`` is using."""
+
     OUTPUT_MESSAGE = ez.OutputStream(Any)
+    """Messages which are sent to ``INPUT_MESSAGE`` will pass through and be published on ``OUTPUT_MESSAGE``."""
+
     OUTPUT_START = ez.OutputStream(Path)
+    """If a file passed to ``INPUT_START`` is successfully opened, its path will be published to
+    ``OUTPUT_START``, otherwise ``None``."""
+
     OUTPUT_STOP = ez.OutputStream(Path)
+    """If a file passed to ``INPUT_STOP`` is successfully closed, its path will be published to
+    ``OUTPUT_STOP``, otherwise ``None``."""
 
     def open_file(self, filepath: Path) -> Optional[Path]:
         """Returns file path if file successfully opened, otherwise None"""

@@ -5,6 +5,10 @@ from .addressable import Addressable
 
 
 class Stream(Addressable):
+    """
+
+    """
+
     msg_type: Type
 
     def __init__(self, msg_type: Type):
@@ -17,11 +21,17 @@ class Stream(Addressable):
 
 
 class InputStream(Stream):
+    """
+    Can be added to any ``Component`` as a member variable. Methods may subscribe to it.
+    """
     def __repr__(self) -> str:
         return f"Input{super().__repr__()}()"
 
 
 class OutputStream(Stream):
+    """
+    Can be added to any ``Component`` as a member variable. Methods may publish to it.
+    """
     host: Optional[str]
     port: Optional[int]
     num_buffers: int

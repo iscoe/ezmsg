@@ -27,3 +27,4 @@ Contents
    api
    utils
    other
+   extensions

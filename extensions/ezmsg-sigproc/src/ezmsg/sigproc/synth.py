@@ -12,10 +12,18 @@ from ezmsg.util.messages.axisarray import AxisArray
 from .butterworthfilter import ButterworthFilter, ButterworthFilterSettings
 
 
-# CLOCK -- generate events at a specified rate #
 def clock(
     dispatch_rate: Optional[float]
 ) -> Generator[ez.Flag, None, None]:
+    """
+    Construct a generator that yields events at a specified rate.
+
+    Args:
+        dispatch_rate: event rate in seconds.
+
+    Returns:
+        A generator object that yields :obj:`ez.Flag` events at a specified rate.
+    """
     n_dispatch = -1
     t_0 = time.time()
     while True:
@@ -29,6 +37,12 @@ def clock(
 async def aclock(
     dispatch_rate: Optional[float]
 ) -> AsyncGenerator[ez.Flag, None]:
+    """
+    ``asyncio`` version of :obj:`clock`.
+
+    Returns:
+        asynchronous generator object. Must use `anext` or `async for`.
+    """
     t_0 = time.time()
     n_dispatch = -1
     while True:
@@ -40,6 +54,7 @@ async def aclock(
 
 
 class ClockSettings(ez.Settings):
+    """Settings for :obj:`Clock`. See :obj:`clock` for parameter description."""
     # Message dispatch rate (Hz), or None (fast as possible)
     dispatch_rate: Optional[float]
 
@@ -50,6 +65,7 @@ class ClockState(ez.State):
 
 
 class Clock(ez.Unit):
+    """Unit for :obj:`clock`."""
     SETTINGS: ClockSettings
     STATE: ClockState
 
@@ -78,18 +94,33 @@ class Clock(ez.Unit):
 
 # COUNTER - Generate incrementing integer. fs and dispatch_rate parameters combine to give many options. #
 async def acounter(
-    n_time: int,  # Number of samples to output per block
-    fs: Optional[float],  # Sampling rate of signal output in Hz
-    n_ch: int = 1,  # Number of channels to synthesize
-
-    # Message dispatch rate (Hz), 'realtime' or None (fast as possible)
-    #  Note: if dispatch_rate is a float then time offsets will be synthetic and the
-    #  system will run faster or slower than wall clock time.
+    n_time: int,
+    fs: Optional[float],
+    n_ch: int = 1,
     dispatch_rate: Optional[Union[float, str]] = None,
-
-    # If set to an integer, counter will rollover at this number.
     mod: Optional[int] = None,
 ) -> AsyncGenerator[AxisArray, None]:
+    """
+    Construct an asynchronous generator to generate AxisArray objects at a specified rate
+    and with the specified sampling rate.
+
+    NOTE: This module uses asyncio.sleep to delay appropriately in realtime mode.
+    This method of sleeping/yielding execution priority has quirky behavior with
+    sub-millisecond sleep periods which may result in unexpected behavior (e.g.
+    fs = 2000, n_time = 1, realtime = True -- may result in ~1400 msgs/sec)
+
+    Args:
+        n_time: Number of samples to output per block.
+        fs: Sampling rate of signal output in Hz.
+        n_ch: Number of channels to synthesize
+        dispatch_rate: Message dispatch rate (Hz), 'realtime' or None (fast as possible)
+            Note: if dispatch_rate is a float then time offsets will be synthetic and the
+            system will run faster or slower than wall clock time.
+        mod: If set to an integer, counter will rollover at this number.
+
+    Returns:
+        An asynchronous generator.
+    """
 
     # TODO: Adapt this to use ezmsg.util.rate?
 
@@ -150,12 +181,10 @@ async def acounter(
 
 
 class CounterSettings(ez.Settings):
+    # TODO: Adapt this to use ezmsg.util.rate?
     """
-    TODO: Adapt this to use ezmsg.util.rate?
-    NOTE: This module uses asyncio.sleep to delay appropriately in realtime mode.
-    This method of sleeping/yielding execution priority has quirky behavior with
-    sub-millisecond sleep periods which may result in unexpected behavior (e.g.
-    fs = 2000, n_time = 1, realtime = True -- may result in ~1400 msgs/sec)
+    Settings for :obj:`Counter`.
+    See :obj:`acounter` for a description of the parameters.
     """
 
     n_time: int  # Number of samples to output per block
@@ -178,7 +207,7 @@ class CounterState(ez.State):
 
 
 class Counter(ez.Unit):
-    """Generates monotonically increasing counter"""
+    """Generates monotonically increasing counter. Unit for :obj:`acounter`."""
 
     SETTINGS: CounterSettings
     STATE: CounterState
@@ -238,10 +267,23 @@ class Counter(ez.Unit):
 @consumer
 def sin(
     axis: Optional[str] = "time",
-    freq: float = 1.0,  # Oscillation frequency in Hz
-    amp: float = 1.0,  # Amplitude
-    phase: float = 0.0,  # Phase offset (in radians)
+    freq: float = 1.0,
+    amp: float = 1.0,
+    phase: float = 0.0,
 ) -> Generator[AxisArray, AxisArray, None]:
+    """
+    Construct a generator of sinusoidal waveforms in AxisArray objects.
+
+    Args:
+        axis: The name of the axis over which the sinusoid passes.
+        freq: The frequency of the sinusoid, in Hz.
+        amp: The amplitude of the sinusoid.
+        phase: The initial phase of the sinusoid, in radians.
+
+    Returns:
+        A primed generator that expects .send(axis_array) of sample counts
+        and yields an AxisArray of sinusoids.
+    """
     axis_arr_in = AxisArray(np.array([]), dims=[""])
     axis_arr_out = AxisArray(np.array([]), dims=[""])
 
@@ -261,6 +303,10 @@ def sin(
 
 
 class SinGeneratorSettings(ez.Settings):
+    """
+    Settings for :obj:`SinGenerator`.
+    See :obj:`sin` for parameter descriptions.
+    """
     time_axis: Optional[str] = "time"
     freq: float = 1.0  # Oscillation frequency in Hz
     amp: float = 1.0  # Amplitude
@@ -268,6 +314,9 @@ class SinGeneratorSettings(ez.Settings):
 
 
 class SinGenerator(GenAxisArray):
+    """
+    Unit for :obj:`sin`.
+    """
     SETTINGS: SinGeneratorSettings
 
     def construct_generator(self):
@@ -280,17 +329,36 @@ class SinGenerator(GenAxisArray):
 
 
 class OscillatorSettings(ez.Settings):
-    n_time: int  # Number of samples to output per block
-    fs: float  # Sampling rate of signal output in Hz
-    n_ch: int = 1  # Number of channels to output per block
-    dispatch_rate: Optional[Union[float, str]] = None  # (Hz) | 'realtime' | 'ext_clock'
-    freq: float = 1.0  # Oscillation frequency in Hz
-    amp: float = 1.0  # Amplitude
-    phase: float = 0.0  # Phase offset (in radians)
-    sync: bool = False  # Adjust `freq` to sync with sampling rate
+    """Settings for :obj:`Oscillator`"""
+    n_time: int
+    """Number of samples to output per block."""
+
+    fs: float
+    """Sampling rate of signal output in Hz"""
+
+    n_ch: int = 1
+    """Number of channels to output per block"""
+
+    dispatch_rate: Optional[Union[float, str]] = None
+    """(Hz) | 'realtime' | 'ext_clock'"""
+
+    freq: float = 1.0
+    """Oscillation frequency in Hz"""
+
+    amp: float = 1.0
+    """Amplitude"""
+
+    phase: float = 0.0
+    """Phase offset (in radians)"""
+
+    sync: bool = False
+    """Adjust `freq` to sync with sampling rate"""
 
 
 class Oscillator(ez.Collection):
+    """
+    :obj:`Collection that chains :obj:`Counter` and :obj:`SinGenerator`.
+    """
     SETTINGS: OscillatorSettings
 
     INPUT_CLOCK = ez.InputStream(ez.Flag)
@@ -334,10 +402,16 @@ class Oscillator(ez.Collection):
 
 class RandomGeneratorSettings(ez.Settings):
     loc: float = 0.0
+    """loc argument for :obj:`numpy.random.normal`"""
+
     scale: float = 1.0
+    """scale argument for :obj:`numpy.random.normal`"""
 
 
 class RandomGenerator(ez.Unit):
+    """
+    Replaces input data with random data and yields the result.
+    """
     SETTINGS: RandomGeneratorSettings
 
     INPUT_SIGNAL = ez.InputStream(AxisArray)
@@ -354,6 +428,9 @@ class RandomGenerator(ez.Unit):
 
 
 class NoiseSettings(ez.Settings):
+    """
+    See :obj:`CounterSettings` and :obj:`RandomGeneratorSettings`.
+    """
     n_time: int  # Number of samples to output per block
     fs: float  # Sampling rate of signal output in Hz
     n_ch: int = 1  # Number of channels to output
@@ -368,6 +445,9 @@ WhiteNoiseSettings = NoiseSettings
 
 
 class WhiteNoise(ez.Collection):
+    """
+    A :obj:`Collection` that chains a :obj:`Counter` and :obj:`RandomGenerator`.
+    """
     SETTINGS: NoiseSettings
 
     INPUT_CLOCK = ez.InputStream(ez.Flag)
@@ -403,6 +483,9 @@ PinkNoiseSettings = NoiseSettings
 
 
 class PinkNoise(ez.Collection):
+    """
+    A :obj:`Collection` that chains :obj:`WhiteNoise` and :obj:`ButterworthFilter`.
+    """
     SETTINGS: PinkNoiseSettings
 
     INPUT_CLOCK = ez.InputStream(ez.Flag)
@@ -459,6 +542,7 @@ class Add(ez.Unit):
 
 
 class EEGSynthSettings(ez.Settings):
+    """See :obj:`OscillatorSettings`."""
     fs: float = 500.0  # Hz
     n_time: int = 100
     alpha_freq: float = 10.5  # Hz
@@ -466,6 +550,10 @@ class EEGSynthSettings(ez.Settings):
 
 
 class EEGSynth(ez.Collection):
+    """
+    A :obj:`Collection` that chains a :obj:`Clock` to both :obj:`PinkNoise`
+    and :obj:`Oscillator`, then :obj:`Add` s the result.
+    """
     SETTINGS: EEGSynthSettings
 
     OUTPUT_SIGNAL = ez.OutputStream(AxisArray)

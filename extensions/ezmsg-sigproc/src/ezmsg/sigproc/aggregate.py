@@ -9,6 +9,7 @@ from ezmsg.sigproc.spectral import OptionsEnum
 
 
 class AggregationFunction(OptionsEnum):
+    """Enum for aggregation functions available to be used in :obj:`ranged_aggregate` operation."""
     NONE = "None (all)"
     MAX = "max"
     MIN = "min"
@@ -43,6 +44,18 @@ def ranged_aggregate(
     bands: typing.Optional[typing.List[typing.Tuple[float, float]]] = None,
     operation: AggregationFunction = AggregationFunction.MEAN
 ):
+    """
+    Apply an aggregation operation over one or more bands.
+
+    Args:
+        axis: The name of the axis along which to apply the bands.
+        bands: [(band1_min, band1_max), (band2_min, band2_max), ...]
+            If not set then this acts as a passthrough node.
+        operation: :obj:`AggregationFunction` to apply to each band.
+
+    Returns:
+        A primed generator object ready to yield an AxisArray for each .send(axis_array)
+    """
     axis_arr_in = AxisArray(np.array([]), dims=[""])
     axis_arr_out = AxisArray(np.array([]), dims=[""])
 
@@ -87,12 +100,19 @@ def ranged_aggregate(
 
 
 class RangedAggregateSettings(ez.Settings):
+    """
+    Settings for ``RangedAggregate``.
+    See :obj:`ranged_aggregate` for details.
+    """
     axis: typing.Optional[str] = None
     bands: typing.Optional[typing.List[typing.Tuple[float, float]]] = None
     operation: AggregationFunction = AggregationFunction.MEAN
 
 
 class RangedAggregate(GenAxisArray):
+    """
+    Unit for :obj:`ranged_aggregate`
+    """
     SETTINGS: RangedAggregateSettings
 
     def construct_generator(self):

@@ -12,10 +12,12 @@ import numpy.typing as npt
 from ezmsg.util.messages.axisarray import AxisArray
 from ezmsg.util.generator import consumer
 
+
 @dataclass
 class FilterCoefficients:
     b: np.ndarray = field(default_factory=lambda: np.array([1.0, 0.0]))
     a: np.ndarray = field(default_factory=lambda: np.array([1.0, 0.0]))
+
 
 def _normalize_coefs(
         coefs: typing.Union[FilterCoefficients, typing.Tuple[npt.NDArray, npt.NDArray],npt.NDArray]
@@ -31,10 +33,22 @@ def _normalize_coefs(
             coefs = (FilterCoefficients.b, FilterCoefficients.a)
     return coef_type, coefs
 
+
 @consumer
 def filtergen(
     axis: str, coefs: typing.Optional[typing.Tuple[np.ndarray]], coef_type: str
 ) -> typing.Generator[AxisArray, AxisArray, None]:
+    """
+    Construct a generic filter generator function.
+
+    Args:
+        axis: The name of the axis to operate on.
+        coefs: The pre-calculated filter coefficients.
+        coef_type: The type of filter coefficients. One of "ba" or "sos".
+
+    Returns:
+        A generator that expects .send(axis_array) and yields the filtered :obj:`AxisArray`.
+    """
     # Massage inputs
     if coefs is not None and not isinstance(coefs, tuple):
         # scipy.signal functions called with first arg `*coefs`, but sos coefs are a single ndarray.

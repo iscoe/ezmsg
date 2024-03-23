@@ -59,7 +59,11 @@ class UnitMeta(ComponentMeta):
 
 
 class Unit(Component, metaclass=UnitMeta):
-    """Units can subscribe, publish, and have tasks"""
+    """
+    Represents a single step in the graph.
+    Units can subscribe, publish, and have tasks.
+    To create a ``Unit``, inherit from the ``Unit`` class.
+    """
 
     def __init__(self, *args, settings: Optional[Settings] = None, **kwargs):
         super(Unit, self).__init__(*args, settings=settings, **kwargs)
@@ -85,16 +89,42 @@ class Unit(Component, metaclass=UnitMeta):
         self._check_state()
 
     async def initialize(self) -> None:
-        """This is called from within the same process this unit will live"""
+        """
+        Runs when the ``Unit`` is instantiated.
+        This is called from within the same process this unit will live.
+        This lifecycle hook can be overridden. It can be run as ``async`` functions by simply adding the
+        ``async`` keyword when overriding.
+        """
         pass
 
     async def shutdown(self) -> None:
-        """This is called from within the same process this unit will live"""
+        """
+        Runs when the ``Unit`` terminates.
+        This is called from within the same process this unit will live.
+        This lifecycle hook can be overridden. It can be run as ``async`` functions by simply adding the
+        ``async`` keyword when overriding.
+        """
         pass
 
 
 def publisher(stream: OutputStream):
-    """A decorator for a method that publishes to a stream in the task/messaging thread"""
+    """
+    A decorator for a method that publishes to a stream in the task/messaging thread.
+    An async function will yield messages on the designated :obj:`OutputStream`.
+
+    .. code-block:: python
+
+      from typing import AsyncGenerator
+
+      OUTPUT = OutputStream(ez.Message)
+
+      @publisher(OUTPUT)
+      async def send_message(self) -> AsyncGenerator:
+         message = Message()
+         yield(OUTPUT, message)
+
+    A function can have both ``@subscriber`` and ``@publisher`` decorators.
+    """
 
     if not isinstance(stream, OutputStream):
         raise ValueError(f"Cannot publish to object of type {type(stream)}")
@@ -109,7 +139,22 @@ def publisher(stream: OutputStream):
 
 
 def subscriber(stream: InputStream, zero_copy: bool = False):
-    """A decorator for a method that subscribes to a stream in the task/messaging thread"""
+    """
+    A decorator for a method that subscribes to a stream in the task/messaging thread.
+    An async function will run once per message received from the :obj:`InputStream` it subscribes to.
+
+    Example:
+
+    .. code-block:: python
+
+      INPUT = ez.InputStream(Message)
+
+      @subscriber(INPUT)
+      async def print_message(self, message: Message) -> None:
+         print(message)
+
+    A function can have both ``@subscriber`` and ``@publisher`` decorators.
+    """
 
     if not isinstance(stream, InputStream):
         raise ValueError(f"Cannot subscribe to object of type {type(stream)}")
@@ -126,12 +171,18 @@ def subscriber(stream: InputStream, zero_copy: bool = False):
 
 
 def main(func: Callable):
-    """A decorator for a function that runs as the main thread.  A Unit may only have one of these."""
+    """
+    A decorator which designates this function to run as the main thread for this :obj:`Unit`.
+    A :obj:`Unit` may only have one of these.
+    """
     setattr(func, MAIN_ATTR, True)
     return func
 
 
 def timeit(func: Callable):
+    """
+    ``ezmsg`` will log the amount of time this function takes to execute.
+    """
     setattr(func, TIMEIT_ATTR, True)
 
     @functools.wraps(func)
@@ -148,17 +199,24 @@ def timeit(func: Callable):
 
 
 def thread(func: Callable):
-    """A decorator for a function that runs in a background thread"""
+    """
+    A decorator which designates this function to run as a background thread for this `:obj:`Unit`.
+    """
     setattr(func, THREAD_ATTR, True)
     return func
 
 
 def task(func: Callable):
-    """A decorator for a function that runs as a task in the task/messaging thread"""
+    """
+    A decorator which designates this function to run as a task in the task/messaging thread.
+    """
     setattr(func, TASK_ATTR, True)
     return func
 
 
 def process(func: Callable):
+    """
+    A decorator which designates this function to run in its own process.
+    """
     setattr(func, PROCESS_ATTR, True)
     return func

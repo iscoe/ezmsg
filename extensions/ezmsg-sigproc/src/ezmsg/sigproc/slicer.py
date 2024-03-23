@@ -15,19 +15,20 @@ Slicer:Select a subset of data along a particular axis.
 def parse_slice(s: str) -> typing.Tuple[typing.Union[slice, int], ...]:
     """
     Parses a string representation of a slice and returns a tuple of slice objects.
-    * "" -> slice(None, None, None)  (take all)
-    * ":" -> slice(None, None, None)
-    * '"none"` (case-insensitive) -> slice(None, None, None)
-    * "{start}:{stop}" or {start}:{stop}:{step} -> slice(start, stop, step)
-    * "5" (or any integer) -> (5,). Take only that item.
+
+    - "" -> slice(None, None, None)  (take all)
+    - ":" -> slice(None, None, None)
+    - '"none"` (case-insensitive) -> slice(None, None, None)
+    - "{start}:{stop}" or {start}:{stop}:{step} -> slice(start, stop, step)
+    - "5" (or any integer) -> (5,). Take only that item.
         applying this to a ndarray or AxisArray will drop the dimension.
-    * A comma-separated list of the above -> a tuple of slices | ints
+    - A comma-separated list of the above -> a tuple of slices | ints
 
     Args:
-        s (str): The string representation of the slice.
+        s: The string representation of the slice.
 
     Returns:
-        tuple[slice | int, ...]: A tuple of slice objects and/or ints.
+        A tuple of slice objects and/or ints.
     """
     if s.lower() in ["", ":", "none"]:
         return (slice(None),)
