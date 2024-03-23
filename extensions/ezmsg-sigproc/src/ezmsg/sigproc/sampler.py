@@ -90,8 +90,8 @@ def sampler(
                 continue
 
             # Check that period is compatible with buffer duration.
-            max_buf_len = int(buffer_dur * fs)
-            req_buf_len = int((_period[1] - _period[0]) * fs)
+            max_buf_len = int(np.round(buffer_dur * fs))
+            req_buf_len = int(np.round((_period[1] - _period[0]) * fs))
             if req_buf_len >= max_buf_len:
                 ez.logger.warning(
                     f"Sampling failed: {period=} >= {buffer_dur=}"
@@ -157,7 +157,7 @@ def sampler(
                 t_start = trig.timestamp + trig.period[0]
                 if t_start >= buffer_offset[0]:
                     start = np.searchsorted(buffer_offset, t_start)
-                    stop = start + int(fs * (trig.period[1] - trig.period[0]))
+                    stop = start + int(np.round(fs * (trig.period[1] - trig.period[0])))
                     if buffer.shape[axis_idx] > stop:
                         # Trigger period fully enclosed in buffer.
                         msg_out.append(

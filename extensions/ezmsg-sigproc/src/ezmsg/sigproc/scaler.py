@@ -61,7 +61,10 @@ def scaler(time_constant: float = 1.0, axis: Optional[str] = None) -> Generator[
 
 
 @consumer
-def scaler_np(time_constant: float = 1.0, axis: Optional[str] = None) -> Generator[AxisArray, AxisArray, None]:
+def scaler_np(
+        time_constant: float = 1.0,
+        axis: Optional[str] = None
+) -> Generator[AxisArray, AxisArray, None]:
     # The only dependency is numpy.
     # This is faster for multi-channel data but slower for single-channel data.
     axis_arr_in = AxisArray(np.array([]), dims=[""])
@@ -90,13 +93,13 @@ def scaler_np(time_constant: float = 1.0, axis: Optional[str] = None) -> Generat
         if alpha is None:
             alpha = _alpha_from_tau(time_constant, axis_arr_in.axes[axis].gain)
 
-        if means is None or means.shape != data[0].shape:
+        if means is None or means.shape != data.shape[1:]:
             vars_sq_means = np.zeros_like(data[0], dtype=float)
             vars_means = np.zeros_like(data[0], dtype=float)
             means = np.zeros_like(data[0], dtype=float)
 
-        result = []
-        for sample in data:
+        result = np.zeros_like(data)
+        for sample_ix, sample in enumerate(data):
             # Update step
             vars_means = _ew_update(sample, vars_means, alpha)
             vars_sq_means = _ew_update(sample**2, vars_sq_means, alpha)
@@ -104,10 +107,9 @@ def scaler_np(time_constant: float = 1.0, axis: Optional[str] = None) -> Generat
             # Get step
             varis = vars_sq_means - vars_means ** 2
             y = ((sample - means) / (varis**0.5))
-            y[np.isnan(y)] = 0.0
-            result.append(y)
+            result[sample_ix] = y
 
-        result = np.stack(result, axis=0)
+        result[np.isnan(result)] = 0.0
         result = np.moveaxis(result, 0, axis_idx)
         axis_arr_out = replace(axis_arr_in, data=result)
 

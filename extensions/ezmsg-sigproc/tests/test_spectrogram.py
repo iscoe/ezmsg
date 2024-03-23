@@ -66,7 +66,7 @@ def test_spectrogram():
     )
 
     results = [gen.send(msg) for msg in messages]
-    results = [_ for _ in results if _ is not None]  # Drop None
+    results = [_ for _ in results if _.data.size]  # Drop empty messages
 
     # Check that the windows span the expected times.
     expected_t_span = 2 * seg_dur

@@ -13,17 +13,19 @@ from ezmsg.util.generator import consumer
 @consumer
 def windowing(
     axis: Optional[str] = None,
-    newaxis: Optional[str] = None,
+    newaxis: str = "win",
     window_dur: Optional[float] = None,
     window_shift: Optional[float] = None,
     zero_pad_until: str = "input"
-) -> Generator[AxisArray, List[AxisArray], None]:
+) -> Generator[AxisArray, AxisArray, None]:
     """
     Window function that generates windows of data from an input `AxisArray`.
     :param axis: The axis along which to segment windows.
         If None, defaults to the first dimension of the first seen AxisArray.
-    :param newaxis: Optional new axis for the output. If None, no new axes will be added.
-        If a string, windows will be stacked in a new axis with key `newaxis`, immediately preceding the windowed axis.
+    :param newaxis: New axis on which windows are delimited, immediately
+        preceding the target windowed axis. The data length along newaxis may be 0 if
+        this most recent push did not provide enough data for a new window.
+        If window_shift is None then the newaxis length will always be 1.
     :param window_dur: The duration of the window in seconds.
         If None, the function acts as a passthrough and all other parameters are ignored.
     :param window_shift: The shift of the window in seconds.
@@ -40,9 +42,9 @@ def windowing(
         A (primed) generator that accepts .send(an AxisArray object) and yields a list of windowed
         AxisArray objects. The list will always be length-1 if `newaxis` is not None or `window_shift` is None.
     """
-    # TODO: The return should be an AxisArray. i.e., always add a new axis. The Unit can do a multi-yield-per-pub
-    #  if the parameterization does not expect a newaxis.
-
+    if newaxis is None:
+        ez.logger.warning("`newaxis` must not be None. Setting to 'win'.")
+        newaxis = "win"
     if window_shift is None and zero_pad_until != "input":
         ez.logger.warning("`zero_pad_until` must be 'input' if `window_shift` is None. "
                           f"Ignoring received argument value: {zero_pad_until}")
@@ -51,7 +53,7 @@ def windowing(
         ez.logger.warning("windowing is non-deterministic with `zero_pad_until='input'` as it depends on the size "
                           "of the first input. We recommend using 'shift' when `window_shift` is float-valued.")
     axis_arr_in = AxisArray(np.array([]), dims=[""])
-    axis_arr_out = [AxisArray(np.array([]), dims=[""])]
+    axis_arr_out = AxisArray(np.array([]), dims=[""])
 
     # State variables
     prev_samp_shape: Optional[Tuple[int, ...]] = None
@@ -60,15 +62,15 @@ def windowing(
     window_samples: Optional[int] = None
     window_shift_samples: Optional[int] = None
     shift_deficit: int = 0  # Number of incoming samples to ignore. Only relevant when shift > window.
-    newaxis_warn_flag: bool = False
-    mod_ax: Optional[str] = None  # The key of the modified axis in the output's .axes
+    b_1to1 = window_shift is None
+    newaxis_warned: bool = b_1to1
     out_template: Optional[AxisArray] = None  # Template for building return values.
 
     while True:
         axis_arr_in = yield axis_arr_out
 
         if window_dur is None:
-            axis_arr_out = [axis_arr_in]
+            axis_arr_out = axis_arr_in
             continue
 
         if axis is None:
@@ -77,19 +79,18 @@ def windowing(
         axis_info = axis_arr_in.get_axis(axis)
         fs = 1.0 / axis_info.gain
 
-        if (not newaxis_warn_flag) and newaxis is not None and newaxis in axis_arr_in.dims:
-            ez.logger.warning(f"newaxis {newaxis} present in input dims and will be ignored.")
-            newaxis_warn_flag = True
-        b_newaxis = newaxis is not None and newaxis not in axis_arr_in.dims
+        if not newaxis_warned and newaxis in axis_arr_in.dims:
+            ez.logger.warning(f"newaxis {newaxis} present in input dims. Using {newaxis}_win instead")
+            newaxis_warned = True
+            newaxis = f"{newaxis}_win"
 
         samp_shape = axis_arr_in.data.shape[:axis_idx] + axis_arr_in.data.shape[axis_idx + 1:]
-        window_samples = int(window_dur * fs)
-        b_1to1 = window_shift is None
-        if not b_1to1:
-            window_shift_samples = int(window_shift * fs)
 
         # If buffer unset or input stats changed, create a new buffer
         if buffer is None or samp_shape != prev_samp_shape or fs != prev_fs:
+            window_samples = int(window_dur * fs)
+            if not b_1to1:
+                window_shift_samples = int(window_shift * fs)
             if zero_pad_until == "none":
                 req_samples = window_samples
             elif zero_pad_until == "shift" and not b_1to1:
@@ -103,14 +104,13 @@ def windowing(
             prev_fs = fs
 
         # Add new data to buffer.
-        # Currently we just concatenate the new time samples and clip the output
-        # np.roll actually returns a copy, and there's no way to construct a
-        # rolling view of the data.  In current numpy implementations, np.concatenate
+        # Currently, we concatenate the new time samples and clip the output.
+        # np.roll is not preferred as it returns a copy, and there's no way to construct a
+        # rolling view of the data. In current numpy implementations, np.concatenate
         # is generally faster than np.roll and slicing anyway, but this could still
         # be a performance bottleneck for large memory arrays.
+        # A circular buffer might be faster.
         buffer = np.concatenate((buffer, axis_arr_in.data), axis=axis_idx)
-        # Note: if we ever move to using a circular buffer without copies then we need to create copies somewhere,
-        #  because currently the outputs are merely views into the buffer.
 
         # Create a vector of buffer timestamps to track axis `offset` in output(s)
         buffer_offset = np.arange(buffer.shape[axis_idx]).astype(float)
@@ -129,66 +129,62 @@ def windowing(
 
         # Prepare reusable parts of output
         if out_template is None:
-            out_dims = axis_arr_in.dims
-            if newaxis is None:
-                out_axes = {
-                    **axis_arr_in.axes,
-                    axis: replace(axis_info, offset=0.0)  # offset modified below.
-                }
-                mod_ax = axis
-            else:
-                out_dims = out_dims[:axis_idx] + [newaxis] + out_dims[axis_idx:]
-                out_axes = {
-                    **axis_arr_in.axes,
-                    newaxis: AxisArray.Axis(
-                        unit=axis_info.unit,
-                        gain=0.0 if b_1to1 else axis_info.gain * window_shift_samples,
-                        offset=0.0  # offset modified below
-                    )
-                }
-                mod_ax = newaxis
-            out_template = replace(axis_arr_in, data=np.zeros([0 for _ in out_dims]), dims=out_dims)
+            template_data_shape = (axis_arr_in.data.shape[:axis_idx]
+                                   + (0, window_samples)
+                                   + axis_arr_in.data.shape[axis_idx + 1:])
+            out_dims = axis_arr_in.dims[:axis_idx] + [newaxis] + axis_arr_in.dims[axis_idx:]
+            out_axes = {
+                **axis_arr_in.axes,
+                axis: replace(axis_info, offset=0.0),  # Sliced axis is relative to newaxis offset
+                newaxis: AxisArray.Axis(
+                    unit=axis_info.unit,
+                    gain=0.0 if b_1to1 else axis_info.gain * window_shift_samples,
+                    offset=0.0  # offset modified below
+                )
+            }
+            out_template = replace(
+                axis_arr_in,
+                data=np.zeros(template_data_shape, dtype=axis_arr_in.data.dtype),
+                dims=out_dims,
+                axes=out_axes
+            )
 
         # Generate outputs.
-        axis_arr_out: List[AxisArray] = []
         if b_1to1:
             # one-to-one mode -- Each send yields exactly one window containing only the most recent samples.
             buffer = slice_along_axis(buffer, np.s_[-window_samples:], axis_idx)
-            axis_arr_out.append(replace(
+            axis_arr_out = replace(
                     out_template,
-                    data=np.expand_dims(buffer, axis=axis_idx) if b_newaxis else buffer,
+                    data=np.expand_dims(buffer, axis=axis_idx),
                     axes={
                         **out_axes,
-                        mod_ax: replace(out_axes[mod_ax], offset=buffer_offset[-window_samples])
+                        newaxis: replace(
+                            out_axes[newaxis],
+                            offset=buffer_offset[-window_samples]
+                        )
                     }
-            ))
+            )
         elif buffer.shape[axis_idx] >= window_samples:
             # Deterministic window shifts.
             win_view = sliding_win_oneaxis(buffer, window_samples, axis_idx)
             win_view = slice_along_axis(win_view, np.s_[::window_shift_samples], axis_idx)
             offset_view = sliding_win_oneaxis(buffer_offset, window_samples, 0)[::window_shift_samples]
-            # Place in output
-            if b_newaxis:
-                axis_arr_out.append(replace(
-                    out_template,
-                    data=win_view,
-                    axes={**out_axes, mod_ax: replace(out_axes[mod_ax], offset=offset_view[0, 0])}
-                ))
-            else:
-                for win_ix in range(win_view.shape[axis_idx]):
-                    axis_arr_out.append(replace(
-                        out_template,
-                        data=slice_along_axis(win_view, win_ix, axis_idx),
-                        axes={
-                            **out_axes,
-                            mod_ax: replace(out_axes[mod_ax], offset=offset_view[win_ix, 0])
-                        }
-                    ))
+            axis_arr_out = replace(
+                out_template,
+                data=win_view,
+                axes={
+                    **out_axes,
+                    newaxis: replace(out_axes[newaxis], offset=offset_view[0, 0])
+                }
+            )
 
             # Drop expired beginning of buffer and update shift_deficit
             multi_shift = window_shift_samples * win_view.shape[axis_idx]
             shift_deficit = max(0, multi_shift - buffer.shape[axis_idx])
             buffer = slice_along_axis(buffer, np.s_[multi_shift:], axis_idx)
+        else:
+            # Not enough data to make a new window. Return empty data.
+            axis_arr_out = out_template
 
 
 class WindowSettings(ez.Settings):
@@ -234,12 +230,27 @@ class Window(ez.Unit):
     @ez.publisher(OUTPUT_SIGNAL)
     async def on_signal(self, msg: AxisArray) -> AsyncGenerator:
         try:
-            # TODO: Refactor window generator so it always returns an axis array.
-            #  Then, if the configuration is such that a new "win" axis is not expected,
-            #  then iterate over the "win" axis -- dropping the "win" axis in the process.
-            out_msgs = self.STATE.gen.send(msg)
-            for out_msg in out_msgs:
+            out_msg = self.STATE.gen.send(msg)
+            if self.STATE.cur_settings.newaxis is not None or self.STATE.cur_settings.window_dur is None:
+                # Multi-win mode or pass-through mode.
                 yield self.OUTPUT_SIGNAL, out_msg
+            else:
+                # We need to split out_msg into multiple yields, dropping newaxis.
+                axis_idx = out_msg.get_axis_idx("win")
+                win_axis = out_msg.axes["win"]
+                offsets = np.arange(out_msg.data.shape[axis_idx]) * win_axis.gain + win_axis.offset
+                for msg_ix in range(out_msg.data.shape[axis_idx]):
+                    yield self.OUTPUT_SIGNAL, replace(
+                        msg,
+                        data=slice_along_axis(out_msg.data, msg_ix, axis_idx),
+                        axes={
+                            **msg.axes,
+                            self.STATE.cur_settings.axis: replace(
+                                msg.axes[self.STATE.cur_settings.axis],
+                                offset=offsets[msg_ix]
+                            ),
+                        }
+                    )
         except (StopIteration, GeneratorExit):
             ez.logger.debug(f"Window closed in {self.address}")
         except Exception:
