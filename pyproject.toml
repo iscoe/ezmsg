@@ -20,7 +20,7 @@ ezmsg = "ezmsg.core.command:cmdline"
 [tool.poetry.dependencies]
 python = "^3.8"
 typing-extensions = "^4.9.0"
-ezmsg-sigproc = { version = "*", source = "pypi", optional = true }
+ezmsg-sigproc = { git = "https://github.com/iscoe/ezmsg.git", subdirectory = "extensions/ezmsg-sigproc", branch = "cboulay/working", optional = true }
 ezmsg-websocket = { version = "*", source = "pypi", optional = true }
 ezmsg-zmq = { version = "*", source = "pypi", optional = true }
 ezmsg-vispy = { version = "*", source = "pypi", optional = true }
