@@ -94,6 +94,7 @@ class GenAxisArray(ez.Unit):
 
     INPUT_SIGNAL = ez.InputStream(AxisArray)
     OUTPUT_SIGNAL = ez.OutputStream(AxisArray)
+    INPUT_SETTINGS = ez.InputStream(ez.Settings)
 
     def initialize(self) -> None:
         self.construct_generator()
@@ -101,6 +102,11 @@ class GenAxisArray(ez.Unit):
     # Method to be implemented by subclasses to construct the specific generator
     def construct_generator(self):
         raise NotImplementedError
+
+    @ez.subscriber(INPUT_SETTINGS)
+    async def on_settings(self, msg: ez.Settings) -> None:
+        self.apply_settings(msg)
+        self.construct_generator()
 
     @ez.subscriber(INPUT_SIGNAL)
     @ez.publisher(OUTPUT_SIGNAL)
