@@ -100,21 +100,21 @@ class Component(Addressable, metaclass=ComponentMeta):
         for stream_name, stream in self.streams.items():
             setattr(self, stream_name, stream)
 
-        try:
-            if settings is None:
-                # settings not supplied as a kwarg. Try to build it.
-                if len(args) > 0 and type(args[0]) == self.__class__.__settings_type__:
-                    settings = args[0]
-                elif len(args) > 0 or len(kwargs) > 0:
-                    settings = self.__class__.__settings_type__(*args, **kwargs)
-                else:
+        if settings is None:
+            # settings not supplied as a kwarg. Try to build it.
+            if len(args) > 0 and type(args[0]) == self.__class__.__settings_type__:
+                settings = args[0]
+            elif len(args) > 0 or len(kwargs) > 0:
+                settings = self.__class__.__settings_type__(*args, **kwargs)
+            else:
+                try:
                     # If we weren't supplied settings, we will try to
                     # instantiate the settings type from annotations
                     settings = self.__class__.__settings_type__()
-        except TypeError:
-            # We couldn't instantiate settings with default value
-            # We will rely on late configuration via apply_settings
-            pass
+                except TypeError:
+                    # We couldn't instantiate settings with default value
+                    # We will rely on late configuration via apply_settings
+                    pass
 
         if settings is not None:
             self.apply_settings(settings)
