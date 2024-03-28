@@ -11,11 +11,33 @@ from ezmsg.util.generator import consumer
 
 
 class ButterworthFilterSettings(FilterSettingsBase):
+    """Settings for :obj:`ButterworthFilter`."""
     order: int = 0
-    cuton: typing.Optional[float] = None  # Hz
-    cutoff: typing.Optional[float] = None  # Hz
+
+    cuton: typing.Optional[float] = None
+    """
+    Cuton frequency (Hz). If cutoff is not specified then this is the highpass corner, otherwise
+    if it is lower than cutoff then this is the beginning of the bandpass
+    or if it is greater than cuton then it is the end of the bandstop. 
+    """
+
+    cutoff: typing.Optional[float] = None
+    """
+    Cutoff frequency (Hz). If cuton is not specified then this is the lowpass corner, otherwise
+    if it is greater than cuton then this is the end of the bandpass,
+    or if it is less than cuton then it is the beginning of the bandstop. 
+    """
 
     def filter_specs(self) -> typing.Optional[typing.Tuple[str, typing.Union[float, typing.Tuple[float, float]]]]:
+        """
+        Determine the filter type given the corner frequencies.
+
+        Returns:
+            A tuple with the first element being a string indicating the filter type
+            (one of "lowpass", "highpass", "bandpass", "bandstop")
+            and the second element being the corner frequency or frequencies.
+
+        """
         if self.cuton is None and self.cutoff is None:
             return None
         elif self.cuton is None and self.cutoff is not None:
@@ -37,6 +59,22 @@ def butter(
     cutoff: typing.Optional[float] = None,
     coef_type: str = "ba",
 ) -> typing.Generator[AxisArray, AxisArray, None]:
+    """
+    Apply Butterworth filter to streaming data. Uses :obj:`scipy.signal.butter` to design the filter.
+    See :obj:`ButterworthFilterSettings.filter_specs` for an explanation of specifying different
+    filter types (lowpass, highpass, bandpass, bandstop) from the parameters.
+
+    Args:
+        axis: The name of the axis to filter.
+        order: Filter order.
+        cuton: Corner frequency of the filter in Hz.
+        cutoff: Corner frequency of the filter in Hz.
+        coef_type: "ba" or "sos"
+
+    Returns:
+        A primed generator object which accepts .send(axis_array) and yields filtered axis array.
+
+    """
     # IO
     axis_arr_in = AxisArray(np.array([]), dims=[""])
     axis_arr_out = AxisArray(np.array([]), dims=[""])
@@ -66,6 +104,8 @@ class ButterworthFilterState(FilterState):
 
 
 class ButterworthFilter(Filter):
+    """:obj:`Unit` for :obj:`butterworth`"""
+
     SETTINGS: ButterworthFilterSettings
     STATE: ButterworthFilterState
 

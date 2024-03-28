@@ -28,6 +28,19 @@ def _alpha_from_tau(tau: float, dt: float) -> float:
 
 @consumer
 def scaler(time_constant: float = 1.0, axis: Optional[str] = None) -> Generator[AxisArray, AxisArray, None]:
+    """
+    Create a generator function that applies the
+    adaptive standard scaler from https://riverml.xyz/latest/api/preprocessing/AdaptiveStandardScaler/
+    This is faster than :obj:`scaler_np` for single-channel data.
+
+    Args:
+        time_constant: Decay constant `tau` in seconds.
+        axis: The name of the axis to accumulate statistics over.
+
+    Returns:
+        A primed generator object that expects `.send(axis_array)` and yields a
+        standardized, or "Z-scored" version of the input.
+    """
     from river import preprocessing
     axis_arr_in = AxisArray(np.array([]), dims=[""])
     axis_arr_out = AxisArray(np.array([]), dims=[""])
@@ -62,8 +75,18 @@ def scaler(time_constant: float = 1.0, axis: Optional[str] = None) -> Generator[
 
 @consumer
 def scaler_np(time_constant: float = 1.0, axis: Optional[str] = None) -> Generator[AxisArray, AxisArray, None]:
-    # The only dependency is numpy.
-    # This is faster for multi-channel data but slower for single-channel data.
+    """
+    Create a generator function that applies an adaptive standard scaler.
+    This is faster than :obj:`scaler` for multichannel data.
+
+    Args:
+        time_constant: Decay constant `tau` in seconds.
+        axis: The name of the axis to accumulate statistics over.
+
+    Returns:
+        A primed generator object that expects `.send(axis_array)` and yields a
+        standardized, or "Z-scored" version of the input.
+    """
     axis_arr_in = AxisArray(np.array([]), dims=[""])
     axis_arr_out = AxisArray(np.array([]), dims=[""])
     means = vars_means = vars_sq_means = None
@@ -113,11 +136,16 @@ def scaler_np(time_constant: float = 1.0, axis: Optional[str] = None) -> Generat
 
 
 class AdaptiveStandardScalerSettings(ez.Settings):
+    """
+    Settings for :obj:`AdaptiveStandardScaler`.
+    See :obj:`scaler_np` for a description of the parameters.
+    """
     time_constant: float = 1.0
     axis: Optional[str] = None
 
 
 class AdaptiveStandardScaler(GenAxisArray):
+    """Unit for :obj:`scaler_np`"""
     SETTINGS: AdaptiveStandardScalerSettings
 
     def construct_generator(self):

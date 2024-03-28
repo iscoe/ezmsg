@@ -13,7 +13,10 @@ from typing import AsyncGenerator, Optional
 
 class EWMSettings(ez.Settings):
     axis: Optional[str] = None
-    zero_offset: bool = True  # If true, we assume zero DC offset
+    """Name of the axis to accumulate."""
+
+    zero_offset: bool = True
+    """If true, we assume zero DC offset for input data."""
 
 
 class EWMState(ez.State):
@@ -96,12 +99,24 @@ class EWM(ez.Unit):
 
 
 class EWMFilterSettings(ez.Settings):
-    history_dur: float  # previous data to accumulate for standardization
+    history_dur: float
+    """Previous data to accumulate for standardization."""
+
     axis: Optional[str] = None
-    zero_offset: bool = True  # If true, we assume zero DC offset for input data
+    """Name of the axis to accumulate."""
+
+    zero_offset: bool = True
+    """If true, we assume zero DC offset for input data."""
 
 
 class EWMFilter(ez.Collection):
+    """
+    A :obj:`Collection` that splits the input into a branch that
+    leads to :obj:`Window` which then feeds into :obj:`EWM` 's INPUT_BUFFER
+    and another branch that feeds directly into :obj:`EWM` 's INPUT_SIGNAL.
+
+    Consider :obj:`scaler` for a more efficient alternative.
+    """
     SETTINGS: EWMFilterSettings
 
     INPUT_SIGNAL = ez.InputStream(AxisArray)

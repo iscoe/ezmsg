@@ -16,14 +16,23 @@ import asyncio
 @dataclass(unsafe_hash=True)
 class SampleTriggerMessage:
     timestamp: float = field(default_factory=time.time)
+    """Time of the trigger, in seconds. The Clock depends on the input but defaults to time.time"""
+
     period: Optional[Tuple[float, float]] = None
+    """The period around the timestamp, in seconds"""
+
     value: Any = None
+    """A value or 'label' associated with the trigger."""
 
 
 @dataclass
 class SampleMessage:
+
     trigger: SampleTriggerMessage
+    """The time, window, and value (if any) associated with the trigger."""
+
     sample: AxisArray
+    """The data sampled around the trigger."""
 
 
 @consumer
@@ -38,26 +47,24 @@ def sampler(
     A generator function that samples data into a buffer, accepts triggers, and returns slices of sampled
     data around the trigger time.
 
-    Parameters:
-    - buffer_dur (float): The duration of the buffer in seconds. The buffer must be long enough to store the oldest
-        sample to be included in a window. e.g., a trigger lagged by 0.5 seconds with a period of (-1.0, +1.5) will
-        need a buffer of 0.5 + (1.5 - -1.0) = 3.0 seconds. It is best to at least double your estimate if memory allows.
-    - axis (Optional[str]): The axis along which to sample the data.
-        None (default) will choose the first axis in the first input.
-    - period (Optional[Tuple[float, float]]): The period in seconds during which to sample the data.
-        Defaults to None. Only used if not None and the trigger message does not define its own period.
-    - value (Any): The value to sample. Defaults to None.
-    - estimate_alignment (bool): Whether to estimate the sample alignment. Defaults to True.
-        If True, the trigger timestamp field is used to slice the buffer.
-        If False, the trigger timestamp is ignored and the next signal's .offset is used.
-        NOTE: For faster-than-realtime playback -- Signals and triggers must share the same (fast) clock for
-        estimate_alignment to operate correctly.
+    Args:
+        buffer_dur: The duration of the buffer in seconds. The buffer must be long enough to store the oldest
+            sample to be included in a window. e.g., a trigger lagged by 0.5 seconds with a period of (-1.0, +1.5) will
+            need a buffer of 0.5 + (1.5 - -1.0) = 3.0 seconds. It is best to at least double your estimate if memory allows.
+        axis: The axis along which to sample the data.
+            None (default) will choose the first axis in the first input.
+        period: The period in seconds during which to sample the data.
+            Defaults to None. Only used if not None and the trigger message does not define its own period.
+        value: The value to sample. Defaults to None.
+        estimate_alignment: Whether to estimate the sample alignment. Defaults to True.
+            If True, the trigger timestamp field is used to slice the buffer.
+            If False, the trigger timestamp is ignored and the next signal's .offset is used.
+            NOTE: For faster-than-realtime playback -- Signals and triggers must share the same (fast) clock for
+            estimate_alignment to operate correctly.
 
-    Sends:
-    - AxisArray containing streaming data messages
-    - SampleTriggerMessage containing a trigger
-    Yields:
-    - list[SampleMessage]: The list of sample messages.
+    Returns:
+        A generator that expects `.send` either an :obj:`AxisArray` containing streaming data messages,
+        or a :obj:`SampleTriggerMessage` containing a trigger, and yields the list of :obj:`SampleMessage` s.
     """
     msg_in = None
     msg_out: Optional[list[SampleMessage]] = None
@@ -177,6 +184,10 @@ def sampler(
 
 
 class SamplerSettings(ez.Settings):
+    """
+    Settings for :obj:`Sampler`.
+    See :obj:`sampler` for a description of the fields.
+    """
     buffer_dur: float
     axis: Optional[str] = None
     period: Optional[
@@ -198,6 +209,7 @@ class SamplerState(ez.State):
 
 
 class Sampler(ez.Unit):
+    """An :obj:`Unit` for :obj:`sampler`."""
     SETTINGS: SamplerSettings
     STATE: SamplerState
 
@@ -237,12 +249,21 @@ class Sampler(ez.Unit):
 
 
 class TriggerGeneratorSettings(ez.Settings):
-    period: Tuple[float, float]  # sec
-    prewait: float = 0.5  # sec
-    publish_period: float = 5.0  # sec
+    period: Tuple[float, float]
+    """The period around the trigger event."""
+
+    prewait: float = 0.5
+    """The time before the first trigger (sec)"""
+
+    publish_period: float = 5.0
+    """The period between triggers (sec)"""
 
 
 class TriggerGenerator(ez.Unit):
+    """
+    A unit to generate triggers every `publish_period` interval.
+    """
+
     SETTINGS: TriggerGeneratorSettings
 
     OUTPUT_TRIGGER = ez.OutputStream(SampleTriggerMessage)

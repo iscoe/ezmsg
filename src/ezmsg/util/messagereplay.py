@@ -13,6 +13,15 @@ from .messagecodec import MessageDecoder, LogStart
 
 @dataclass
 class ReplayStatusMessage:
+    """
+    Message which gives the status of a file replay.
+
+    Args:
+        filename: The name of the file currently being replayed.
+        idx: The line number of the message that was just published.
+        total: Number of messages in the file.
+        done: Whether the file has finished replaying.
+    """
     filename: Path
     idx: int
     total: int
@@ -21,13 +30,26 @@ class ReplayStatusMessage:
 
 @dataclass
 class FileReplayMessage:
-    filename: typing.Optional[Path] = None
+    """
+    Add a file to the queue.
 
-    # 0 = realtime (if timestamps in file), None = as fast as possible
+    Args:
+        filename: The path of the file to replay.
+        rate: in Hertz at which the messages will be published.
+            0 = realtime (if timestamps in file)
+            If not specified, messages will publish as fast as possible.
+    """
+    filename: typing.Optional[Path] = None
     rate: typing.Optional[float] = None  # Hz
 
 
 class MessageReplaySettings(ez.Settings, FileReplayMessage):
+    """
+    Settings for :obj:`MesssageReplay` Unit.
+
+    Args:
+        progress: will use tqdm to indicate progress through the file. tqdm must be installed.
+    """
     progress: bool = False
 
 
@@ -38,17 +60,37 @@ class MessageReplayState(ez.State):
 
 
 class MessageReplay(ez.Unit):
+    """
+    Stream messages from files created by :obj:`MessageLogger`.
+    Stores a queue of files to stream and streams from them in order.
+    """
+
     SETTINGS: MessageReplaySettings
     STATE: MessageReplayState
 
     INPUT_FILE = ez.InputStream(FileReplayMessage)
-    INPUT_PAUSED = ez.InputStream(bool)  # Pause state; True = paused, False = running
-    INPUT_STOP = ez.InputStream(bool)  # True = clear queue
+    """Add a new file to the queue."""
+
+    INPUT_PAUSED = ez.InputStream(bool)
+    """Send ``True`` to pause the stream, ``False`` to restart the stream."""
+
+    INPUT_STOP = ez.InputStream(bool)
+    """
+    Stop the stream. Send ``True`` to also clear the queue.
+    Send ``False`` to reset to the beginning of the current file.
+    """
 
     OUTPUT_MESSAGE = ez.OutputStream(typing.Any)
+    """The output on which the messages from the files will be streamed."""
+
     OUTPUT_TOTAL = ez.OutputStream(int)
+    """
+    Publishes an integer total of messages which have been published on OUTPUT_MESSAGE from a single file.
+    Resets when a file completes.
+    """
 
     OUTPUT_REPLAY_STATUS = ez.OutputStream(ReplayStatusMessage)
+    """Publishes status messages."""
 
     async def initialize(self) -> None:
         self.STATE.replay_files = asyncio.Queue()
@@ -167,10 +209,17 @@ class MessageCollectorState(ez.State):
 
 
 class MessageCollector(ez.Unit):
+    """
+    Collects ``Messages`` into a local list.
+    """
+
     STATE: MessageCollectorState
 
     INPUT_MESSAGE = ez.InputStream(typing.Any)
+    """Send messages here to be collected."""
+
     OUTPUT_MESSAGE = ez.OutputStream(typing.Any)
+    """Messages will pass straight through after being recorded and be published here."""
 
     @ez.subscriber(INPUT_MESSAGE)
     @ez.publisher(OUTPUT_MESSAGE)
@@ -180,4 +229,9 @@ class MessageCollector(ez.Unit):
 
     @property
     def messages(self) -> typing.List[typing.Any]:
+        """
+        Access the list of messages.
+
+        :return: A list of messages which have been collected.
+        """
         return self.STATE.messages

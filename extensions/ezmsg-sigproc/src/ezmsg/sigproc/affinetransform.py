@@ -15,6 +15,18 @@ def affine_transform(
     axis: Optional[str] = None,
     right_multiply: bool = True,
 ) -> Generator[AxisArray, AxisArray, None]:
+    """
+    Perform affine transformations on streaming data.
+
+    Args:
+        weights: An array of weights or a path to a file with weights compatible with np.loadtxt.
+        axis: The name of the axis to apply the transformation to. Defaults to the leading (0th) axis in the array.
+        right_multiply: Set False to tranpose the weights before applying.
+
+    Returns:
+        A primed generator object that yields an :obj:`AxisArray` object for every
+        :obj:`AxisArray` it receives via `send`.
+    """
     axis_arr_in = AxisArray(np.array([]), dims=[""])
     axis_arr_out = AxisArray(np.array([]), dims=[""])
 
@@ -53,12 +65,17 @@ def affine_transform(
 
 
 class AffineTransformSettings(ez.Settings):
+    """
+    Settings for :obj:`AffineTransform`.
+    See :obj:`affine_transform` for argument details.
+    """
     weights: Union[np.ndarray, str, Path]
     axis: Optional[str] = None
     right_multiply: bool = True
 
 
 class AffineTransform(GenAxisArray):
+    """:obj:`Unit` for :obj:`affine_transform`"""
     SETTINGS: AffineTransformSettings
 
     def construct_generator(self):
@@ -73,6 +90,18 @@ class AffineTransform(GenAxisArray):
 def common_rereference(
     mode: str = "mean", axis: Optional[str] = None, include_current: bool = True
 ) -> Generator[AxisArray, AxisArray, None]:
+    """
+    Perform common average referencing (CAR) on streaming data.
+
+    Args:
+        mode: The statistical mode to apply -- either "mean" or "median"
+        axis: The name of hte axis to apply the transformation to.
+        include_current: Set False to exclude each channel from participating in the calculation of its reference.
+
+    Returns:
+        A primed generator object that yields an :obj:`AxisArray` object
+        for every :obj:`AxisArray` it receives via `send`.
+    """
     axis_arr_in = AxisArray(np.array([]), dims=[""])
     axis_arr_out = AxisArray(np.array([]), dims=[""])
 
@@ -108,12 +137,19 @@ def common_rereference(
 
 
 class CommonRereferenceSettings(ez.Settings):
+    """
+    Settings for :obj:`CommonRereference`
+    See :obj:`common_rereference` for argument details.
+    """
     mode: str = "mean"
     axis: Optional[str] = None
     include_current: bool = True
 
 
 class CommonRereference(GenAxisArray):
+    """
+    :obj:`Unit` for :obj:`common_rereference`.
+    """
     SETTINGS: CommonRereferenceSettings
 
     def construct_generator(self):

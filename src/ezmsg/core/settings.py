@@ -28,4 +28,38 @@ class SettingsMeta(ABCMeta):
 
 
 class Settings(ABC, metaclass=SettingsMeta):
+    """
+    To pass parameters into a :obj:`Component`, inherit from ``Settings``.
+
+    .. code-block:: python
+
+       class YourSettings(Settings):
+          setting1: int
+          setting2: float
+
+    To use, declare the ``Settings`` object for a ``Component`` as a member variable called (all-caps!) ``SETTINGS``. ``ezmsg`` will monitor the variable called ``SETTINGS`` in the background, so it is important to name it correctly.
+
+    .. code-block:: python
+
+       class YourUnit(Unit):
+
+          SETTINGS: YourSettings
+
+    A ``Unit`` can accept a ``Settings`` object as a parameter on instantiation.
+
+    .. code-block:: python
+
+       class YourCollection(Collection):
+
+          YOUR_UNIT = YourUnit(
+             YourSettings(
+                setting1: int,
+                setting2: float
+             )
+          )
+
+    .. note::
+       ``Settings`` uses type hints to define member variables, but does not enforce type checking.
+
+    """
     ...

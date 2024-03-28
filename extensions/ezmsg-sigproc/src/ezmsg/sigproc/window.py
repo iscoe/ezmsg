@@ -19,24 +19,28 @@ def windowing(
     zero_pad_until: str = "input"
 ) -> Generator[AxisArray, List[AxisArray], None]:
     """
-    Window function that generates windows of data from an input `AxisArray`.
-    :param axis: The axis along which to segment windows.
-        If None, defaults to the first dimension of the first seen AxisArray.
-    :param newaxis: Optional new axis for the output. If None, no new axes will be added.
-        If a string, windows will be stacked in a new axis with key `newaxis`, immediately preceding the windowed axis.
-    :param window_dur: The duration of the window in seconds.
-        If None, the function acts as a passthrough and all other parameters are ignored.
-    :param window_shift: The shift of the window in seconds.
-        If None (default), windowing operates in "1:1 mode", where each input yields exactly one most-recent window.
-    :param zero_pad_until: Determines how the function initializes the buffer.
-        Can be one of "input" (default), "full", "shift", or "none". If `window_shift` is None then this field is
-        ignored and "input" is always used.
-        "input" (default) initializes the buffer with the input then prepends with zeros to the window size.
-            The first input will always yield at least one output.
-        "shift" fills the buffer until `window_shift`.
-            No outputs will be yielded until at least `window_shift` data has been seen.
-        "none" does not pad the buffer. No outputs will be yielded until at least `window_dur` data has been seen.
-    :return:
+    Construct a generator that yields windows of data from an input :obj:`AxisArray`.
+
+    Args:
+        axis: The axis along which to segment windows.
+            If None, defaults to the first dimension of the first seen AxisArray.
+        newaxis: Optional new axis for the output. If None, no new axes will be added.
+            If a string, windows will be stacked in a new axis with key `newaxis`, immediately preceding the windowed axis.
+        window_dur: The duration of the window in seconds.
+            If None, the function acts as a passthrough and all other parameters are ignored.
+        window_shift: The shift of the window in seconds.
+            If None (default), windowing operates in "1:1 mode", where each input yields exactly one most-recent window.
+        zero_pad_until: Determines how the function initializes the buffer.
+            Can be one of "input" (default), "full", "shift", or "none". If `window_shift` is None then this field is
+            ignored and "input" is always used.
+
+            - "input" (default) initializes the buffer with the input then prepends with zeros to the window size.
+              The first input will always yield at least one output.
+            - "shift" fills the buffer until `window_shift`.
+              No outputs will be yielded until at least `window_shift` data has been seen.
+            - "none" does not pad the buffer. No outputs will be yielded until at least `window_dur` data has been seen.
+
+    Returns:
         A (primed) generator that accepts .send(an AxisArray object) and yields a list of windowed
         AxisArray objects. The list will always be length-1 if `newaxis` is not None or `window_shift` is None.
     """

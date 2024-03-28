@@ -9,8 +9,15 @@ from typing import Optional, Any
 
 
 class TerminateOnTimeoutSettings(ez.Settings):
-    time: float = 2.0  # Terminate if no message has been received in this time (sec)
-    poll_rate: float = 4.0  # Probably no good reason to mess with this (Hz)
+    """
+    Settings for :obj:`TerminateOnTimeout` Unit.
+
+    Args:
+        time: Terminate if no message has been received in this time (sec)
+        poll_rate: Hz.
+    """
+    time: float = 2.0
+    poll_rate: float = 4.0
 
 
 class TerminateOnTimeoutState(ez.State):
@@ -18,10 +25,15 @@ class TerminateOnTimeoutState(ez.State):
 
 
 class TerminateOnTimeout(ez.Unit):
+    """
+    End a pipeline execution when a certain amount of time has passed without receiving a message.
+    """
+
     SETTINGS: TerminateOnTimeoutSettings
     STATE: TerminateOnTimeoutState
 
     INPUT = ez.InputStream(Any)
+    """Send messages here."""
 
     @ez.subscriber(INPUT)
     async def keepalive(self, _: Any) -> None:
@@ -40,6 +52,12 @@ class TerminateOnTimeout(ez.Unit):
 
 
 class TerminateOnTotalSettings(ez.Settings):
+    """
+    Settings for :obj:`TerminateOnTotal` Unit.
+
+    Args:
+        total: The total number of messages to terminate after.
+    """
     total: Optional[int] = None
 
 
@@ -49,11 +67,21 @@ class TerminateOnTotalState(ez.State):
 
 
 class TerminateOnTotal(ez.Unit):
+    """
+    End a pipeline execution once a certain number of messages have been received.
+    """
+
     SETTINGS: TerminateOnTotalSettings
     STATE: TerminateOnTotalState
 
     INPUT_MESSAGE = ez.InputStream(Any)
+    """Send messages here."""
+
     INPUT_TOTAL = ez.InputStream(int)
+    """
+    Change the total number of messages to terminate after.
+    If this number has already been reached, termination will occur immediately.
+    """
 
     def initialize(self) -> None:
         self.STATE.total = self.SETTINGS.total

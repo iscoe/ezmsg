@@ -5,6 +5,13 @@ from ezmsg.util.rate import Rate
 
 
 class MessageQueueSettings(ez.Settings):
+    """
+    Settings for :obj:`MessageQueue` class.
+
+    Args:
+        maxsize: The maximum number of items which the queue will hold.
+        leaky: Whether the queue will drop new messages when it reaches its maxsize, or whether it will wait for space to open for them.
+    """
     maxsize: int = 0
     leaky: bool = False
     log_above_n: Optional[int] = None
@@ -17,11 +24,18 @@ class MessageQueueState(ez.State):
 
 
 class MessageQueue(ez.Unit):
+    """
+    Place between two other ``Units`` to induce backpressure.
+    """
+
     SETTINGS: MessageQueueSettings
     STATE: MessageQueueState
 
     INPUT = ez.InputStream(Any)
+    """Send messages to queue here."""
+
     OUTPUT = ez.OutputStream(Any)
+    """Subscribe to pull messages out of the queue."""
 
     def initialize(self):
         self.STATE.leaky = self.SETTINGS.leaky

@@ -4,15 +4,31 @@ from typing import AsyncGenerator, Optional, Any
 
 
 class DebugLogSettings(ez.Settings):
-    name: str = "DEBUG"  # Useful name for logger
-    max_length: Optional[int] = 400  # No limit if `None``
+    """
+    ``Settings`` class associated with :obj:`DebugLog`
+
+    Args:
+        name: Useful name for the logger. The name is included in the logstring so that if multiple DebugLogs
+            are used in one pipeline, their messages can be differentiated.
+        max_length: Sets a maximum number of chars which will be printed from the message.
+            If the message is longer, the log message will be truncated.
+    """
+    name: str = "DEBUG"
+    max_length: Optional[int] = 400
 
 
 class DebugLog(ez.Unit):
+    """
+    Logs messages that pass through.
+    """
+
     SETTINGS: DebugLogSettings
 
     INPUT = ez.InputStream(Any)
+    """Send messages to log here."""
+
     OUTPUT = ez.OutputStream(Any)
+    """Send messages back out to continue through the graph."""
 
     @ez.subscriber(INPUT, zero_copy=True)
     @ez.publisher(OUTPUT)

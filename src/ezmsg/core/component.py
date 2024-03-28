@@ -72,6 +72,10 @@ class ComponentMeta(ABCMeta):
 
 
 class Component(Addressable, metaclass=ComponentMeta):
+    """
+    Metaclass which :obj:`Unit` and :obj:`Collection` inherit from.
+    """
+
     SETTINGS: Settings
     STATE: State
 
@@ -132,6 +136,13 @@ class Component(Addressable, metaclass=ComponentMeta):
                 )
 
     def apply_settings(self, settings: Settings) -> None:
+        """
+        Update the ``Component``‘s ``Settings`` object.
+
+        Args:
+            settings: An instance of the class-specific ``Settings``.
+
+        """
         self.SETTINGS = settings
         self._settings_applied = True
 

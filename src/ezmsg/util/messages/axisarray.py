@@ -12,11 +12,14 @@ import numpy.lib.stride_tricks as nps
 from ezmsg.core.util import either_dict_or_kwargs
 
 # TODO: Typehinting is all wrong in this and 
-# concatenate/transpose should probably not be staticmethods
+#  concatenate/transpose should probably not be staticmethods
 
 
 @dataclass
 class AxisArray:
+    """
+    A lightweight message class comprising a numpy ndarray and its metadata.
+    """
     data: npt.NDArray
     dims: typing.List[str]
     axes: typing.Dict[str, "AxisArray.Axis"] = field(default_factory=dict)
@@ -211,12 +214,12 @@ def slice_along_axis(in_arr: npt.NDArray, sl: typing.Union[slice, int], axis: in
      Use `slice(my_int, my_int+1, None)` to keep the sliced dimension.
 
     Parameters:
-        in_arr (npt.NDArray): The input array to be sliced.
-        sl (Union[slice, int]): The slice object or integer index to use for slicing.
-        axis (int): The axis along which to slice the array.
+        in_arr: The input array to be sliced.
+        sl: The slice object or integer index to use for slicing.
+        axis: The axis along which to slice the array.
 
     Returns:
-        npt.NDArray: The sliced array (view).
+        The sliced array (view).
 
     Raises:
         ValueError: If the axis value is invalid for the input array.
@@ -232,20 +235,22 @@ def slice_along_axis(in_arr: npt.NDArray, sl: typing.Union[slice, int], axis: in
 def sliding_win_oneaxis(in_arr: npt.NDArray, nwin: int, axis: int) -> npt.NDArray:
     """
     Generates a view of an array using a sliding window of specified length along a specified axis of the input array.
-    This is a slightly optimized version of nps.sliding_window_view with a few important differences.
-    * This only accepts a single nwin and a single axis, thus we can skip some checks.
-    * The new `win` axis precedes immediately the original target axis, unlike sliding_window_view where the
-     target axis is moved to the end of the output.
-    Combine this with slice_along_axis(..., sl=slice(None, None, step), axis=axis) to step the window
-     by more than 1 sample at a time.
+    This is a slightly optimized version of nps.sliding_window_view with a few important differences:
 
-    Parameters:
-        in_arr (npt.NDArray): The input array.
-        nwin (int): The size of the sliding window.
-        axis (int): The axis along which the sliding window will be applied.
+    - This only accepts a single nwin and a single axis, thus we can skip some checks.
+    - The new `win` axis precedes immediately the original target axis, unlike sliding_window_view where the
+        target axis is moved to the end of the output.
+
+    Combine this with slice_along_axis(..., sl=slice(None, None, step), axis=axis) to step the window
+        by more than 1 sample at a time.
+
+    Args:
+        in_arr: The input array.
+        nwin: The size of the sliding window.
+        axis: The axis along which the sliding window will be applied.
 
     Returns:
-        npt.NDArray: A view to the input array with the sliding window applied.
+        A view to the input array with the sliding window applied.
 
     Note: There is a known edge case when nwin == shape[axis] + 1. While this should raise
         an error because the window is larger than the input, the implementation ends up

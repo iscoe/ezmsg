@@ -15,11 +15,21 @@ class OptionsEnum(enum.Enum):
 
 
 class WindowFunction(OptionsEnum):
+    """Windowing function prior to calculating spectrum. """
     NONE = "None (Rectangular)"
+    """None."""
+
     HAMMING = "Hamming"
+    """:obj:`numpy.hamming`"""
+
     HANNING = "Hanning"
+    """:obj:`numpy.hanning`"""
+
     BARTLETT = "Bartlett"
+    """:obj:`numpy.bartlett`"""
+
     BLACKMAN = "Blackman"
+    """:obj:`numpy.blackman`"""
 
 
 WINDOWS = {
@@ -32,6 +42,7 @@ WINDOWS = {
 
 
 class SpectralTransform(OptionsEnum):
+    """Additional transformation functions to apply to the spectral result."""
     RAW_COMPLEX = "Complex FFT Output"
     REAL = "Real Component of FFT"
     IMAG = "Imaginary Component of FFT"
@@ -40,6 +51,7 @@ class SpectralTransform(OptionsEnum):
 
 
 class SpectralOutput(OptionsEnum):
+    """The expected spectral contents."""
     FULL = "Full Spectrum"
     POSITIVE = "Positive Frequencies"
     NEGATIVE = "Negative Frequencies"
@@ -53,6 +65,20 @@ def spectrum(
     transform: SpectralTransform = SpectralTransform.REL_DB,
     output: SpectralOutput = SpectralOutput.POSITIVE
 ) -> Generator[AxisArray, AxisArray, None]:
+    """
+    Calculate a spectrum on a data slice.
+
+    Args:
+        axis: The name of the axis on which to calculate the spectrum.
+        out_axis: The name of the new axis. Defaults to "freq".
+        window: The :obj:`WindowFunction` to apply to the data slice prior to calculating the spectrum.
+        transform: The :obj:`SpectralTransform` to apply to the spectral magnitude.
+        output: The :obj:`SpectralOutput` format.
+
+    Returns:
+        A primed generator object that expects `.send(axis_array)` of continuous data
+        and yields an AxisArray of spectral magnitudes or powers.
+    """
 
     # State variables
     axis_arr_in = AxisArray(np.array([]), dims=[""])
@@ -120,6 +146,10 @@ def spectrum(
 
 
 class SpectrumSettings(ez.Settings):
+    """
+    Settings for :obj:`Spectrum.
+    See :obj:`spectrum` for a description of the parameters.
+    """
     axis: Optional[str] = None
     # n: Optional[int] = None # n parameter for fft
     out_axis: Optional[str] = "freq"  # If none; don't change dim name
@@ -134,6 +164,7 @@ class SpectrumState(ez.State):
 
 
 class Spectrum(GenAxisArray):
+    """Unit for :obj:`spectrum`"""
     SETTINGS: SpectrumSettings
     STATE: SpectrumState
 

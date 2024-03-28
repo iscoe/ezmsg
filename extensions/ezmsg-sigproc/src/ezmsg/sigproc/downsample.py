@@ -13,6 +13,24 @@ import ezmsg.core as ez
 def downsample(
         axis: Optional[str] = None, factor: int = 1
 ) -> Generator[AxisArray, AxisArray, None]:
+    """
+    Construct a generator that yields a downsampled version of the data .send() to it.
+    Downsampled data simply comprise every `factor`th sample.
+    This should only be used following appropriate lowpass filtering.
+    If your pipeline does not already have lowpass filtering then consider
+    using the :obj:`Decimate` collection instead.
+
+    Args:
+        axis: The name of the axis along which to downsample.
+        factor: Downsampling factor.
+
+    Returns:
+        A primed generator object ready to receive a `.send(axis_array)`
+        and yields the downsampled data.
+        Note that if a send chunk does not have sufficient samples to reach the
+        next downsample interval then `None` is yielded.
+
+    """
     axis_arr_in = AxisArray(np.array([]), dims=[""])
     axis_arr_out = AxisArray(np.array([]), dims=[""])
 
@@ -44,6 +62,10 @@ def downsample(
 
 
 class DownsampleSettings(ez.Settings):
+    """
+    Settings for :obj:`Downsample` node.
+    See :obj:`downsample` documentation for a description of the parameters.
+    """
     axis: Optional[str] = None
     factor: int = 1
 
@@ -54,6 +76,9 @@ class DownsampleState(ez.State):
 
 
 class Downsample(ez.Unit):
+    """
+    :obj:`Unit` for :obj:`downsample`.
+    """
     SETTINGS: DownsampleSettings
     STATE: DownsampleState
 

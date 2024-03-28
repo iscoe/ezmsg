@@ -21,6 +21,24 @@ def spectrogram(
     transform: SpectralTransform = SpectralTransform.REL_DB,
     output: SpectralOutput = SpectralOutput.POSITIVE
 ) -> typing.Generator[typing.Optional[AxisArray], AxisArray, None]:
+    """
+    Calculate a spectrogram on streaming data.
+
+    Chains :obj:`ezmsg.sigproc.window.windowing` to apply a moving window on the data,
+    :obj:`ezmsg.sigproc.spectrum.spectrum` to calculate spectra for each window,
+    and finally :obj:`ezmsg.util.messages.modify.modify_axis` to convert the win axis back to time axis.
+
+    Args:
+        window_dur: See :obj:`ezmsg.sigproc.window.windowing`
+        window_shift: See :obj:`ezmsg.sigproc.window.windowing`
+        window: See :obj:`ezmsg.sigproc.spectrum.spectrum`
+        transform: See :obj:`ezmsg.sigproc.spectrum.spectrum`
+        output: See :obj:`ezmsg.sigproc.spectrum.spectrum`
+
+    Returns:
+        A primed generator object that expects `.send(axis_array)` of continuous data
+        and yields an AxisArray of time-frequency power values.
+    """
 
     # We cannot use `compose` because `windowing` returns a list of axisarray objects,
     #  even though the length is always exactly 1 for the settings used here.
@@ -47,6 +65,10 @@ def spectrogram(
 
 
 class SpectrogramSettings(ez.Settings):
+    """
+    Settings for :obj:`Spectrogram`.
+    See :obj:`spectrogram` for a description of the parameters.
+    """
     window_dur: typing.Optional[float] = None  # window duration in seconds
     window_shift: typing.Optional[float] = None  # window step in seconds. If None, window_shift == window_dur
     # See SpectrumSettings for details of following settings:
@@ -56,6 +78,9 @@ class SpectrogramSettings(ez.Settings):
 
 
 class Spectrogram(GenAxisArray):
+    """
+    Unit for :obj:`spectrogram`.
+    """
     SETTINGS: SpectrogramSettings
 
     def construct_generator(self):

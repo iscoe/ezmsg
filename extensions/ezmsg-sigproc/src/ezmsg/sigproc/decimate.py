@@ -9,6 +9,10 @@ from .filter import Filter, FilterCoefficients, FilterSettings
 
 
 class Decimate(ez.Collection):
+    """
+    A :obj:`Collection` chaining a :obj:`Filter` node configured as a lowpass Chebyshev filter
+    and a :obj:`Downsample` node.
+    """
     SETTINGS: DownsampleSettings
 
     INPUT_SIGNAL = ez.InputStream(AxisArray)
